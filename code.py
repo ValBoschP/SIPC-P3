@@ -36,9 +36,9 @@ spawn_timer = 0
 
 def spawn_meteor():
     x_position = random.randint(50, 750)
-    size = random.choice([40, 50, 60, 80])  # Random size for variety
-    speed = random.randint(4 + difficulty, 8 + difficulty)  # Increased speed
-    lateral_speed = random.uniform(-1, 1)  # Random lateral movement
+    size = random.choice([40, 50, 60, 80, 100, 120])  # Random size for variety
+    speed = random.randint(base_speed, base_speed + 3)  # Increased speed
+    lateral_speed = random.uniform(-1 - difficulty * 0.1, 1 + difficulty * 0.1)   # Random lateral movement
     meteor = pygame.transform.scale(meteor_image, (size, size))
     meteors.append({"position": [x_position, -size], "speed": speed, "lateral_speed": lateral_speed, "image": meteor, "size": size})
 
@@ -73,23 +73,46 @@ def game_over():
     screen.blit(restart_text, (150, 400))
     pygame.display.flip()
 
+# Agregar al principio del código
+game_active = False  # Inicia en el menú principal
+menu_active = True  # Variable para controlar el estado del menú
+
+def main_menu():
+    screen.fill((0, 0, 0))  # Limpiar la pantalla con color negro
+    title_text = game_over_font.render("SPACE GAME", True, (0, 0, 255))
+    title_rect = title_text.get_rect(center=(screen.get_width() // 2, 200)) 
+    instruction_text = default_font.render("Press ENTER to start", True, (255, 255, 255))
+    instruction_rect = instruction_text.get_rect(center=(screen.get_width() // 2, 300))
+    screen.blit(title_text, title_rect)
+    screen.blit(instruction_text, instruction_rect)
+    pygame.display.flip()
+
+# Modificar el bucle principal
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        if not game_active:
+
+        if menu_active:  # Lógica del menú principal
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:  # Restart game
+                if event.key == pygame.K_RETURN:  # Presionar ENTER para comenzar
+                    menu_active = False
+                    game_active = True
+        elif not game_active:  # Lógica de Game Over
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:  # Reiniciar juego
                     game_active = True
                     meteors = []
                     score = 0
                     difficulty = 0
                     player_position = [400, 500]
-                if event.key == pygame.K_ESCAPE:  # Quit game
+                if event.key == pygame.K_ESCAPE:  # Salir del juego
                     running = False
 
-    if game_active:
-        # Read frame from camera
+    if menu_active:
+        main_menu()
+    elif game_active:
+        # Lógica del juego (sin cambios, ya estaba implementada)
         ret, frame = cap.read()
         if not ret:
             break
@@ -97,7 +120,7 @@ while running:
         frame = cv2.flip(frame, 1)
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Process frame with MediaPipe Hands
+        # Procesar con MediaPipe Hands
         results = hands.process(rgb_frame)
 
         if results.multi_hand_landmarks:
@@ -106,53 +129,48 @@ while running:
                 index_finger = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
 
                 screen_w, screen_h = screen.get_size()
-                player_position[0] = int(wrist.x * screen_w - 30)  # Center the spaceship
+                player_position[0] = int(wrist.x * screen_w - 30)  # Centrar la nave
                 player_position[1] = int(wrist.y * screen_h - 30)
 
-                # Calculate angle for rotation
+                # Calcular el ángulo para la rotación
                 dx = index_finger.x - wrist.x
                 dy = index_finger.y - wrist.y
                 player_angle = -math.degrees(math.atan2(dy, dx)) - 90
 
                 mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-        # Spawn meteors
+        max_spawn_rate = max(10, 30 - difficulty)
         spawn_timer += 1
-        if spawn_timer > max(10, 30 - difficulty):  # Spawn meteors faster as difficulty increases
+        if spawn_timer > max_spawn_rate:
             spawn_meteor()
             spawn_timer = 0
 
-        # Move meteors
         for meteor in meteors:
             meteor["position"][1] += meteor["speed"]
-            meteor["position"][0] += meteor["lateral_speed"]  # Add lateral movement
+            meteor["position"][0] += meteor["lateral_speed"]
 
-        # Check for collisions
         for meteor in meteors[:]:
             if check_collision(player_position, meteor):
                 collision_happened = True
-                game_active = False  # End the game on collision
-            if meteor["position"][1] > 600 or meteor["position"][0] < -100 or meteor["position"][0] > 900:  # Remove meteors out of screen
+                game_active = False
+            if meteor["position"][1] > 600 or meteor["position"][0] < -100 or meteor["position"][0] > 900:
                 meteors.remove(meteor)
                 score += 1
 
-        # Increase difficulty over time
         difficulty = score // 10
+        base_speed = 4 + difficulty
 
-        # Draw everything
-        screen.fill((0, 0, 0))  # Clear screen with black color
-        rotated_spaceship = pygame.transform.rotate(spaceship_image, player_angle)  # Rotate spaceship
+        screen.fill((0, 0, 0))
+        rotated_spaceship = pygame.transform.rotate(spaceship_image, player_angle)
         spaceship_rect = rotated_spaceship.get_rect(center=(player_position[0] + 40, player_position[1] + 40))
         screen.blit(rotated_spaceship, spaceship_rect.topleft)
         for meteor in meteors:
             draw_meteor(meteor)
-        draw_score()  # Draw the score
+        draw_score()
         pygame.display.flip()
 
-        # Display frame for debugging
         cv2.imshow('Hand Tracking', frame)
 
-        # Exit on ESC
         if cv2.waitKey(1) & 0xFF == 27:
             break
 
