@@ -1,4 +1,3 @@
-# Modificación: Nave puede rotar y meteoritos son más difíciles de esquivar
 import cv2
 import mediapipe as mp
 import pygame
@@ -16,13 +15,11 @@ screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Space Game")
 clock = pygame.time.Clock()
 
-# Load images
 spaceship_image = pygame.image.load("spaceship.png").convert_alpha()
 spaceship_image = pygame.transform.scale(spaceship_image, (80, 80))
 
 meteor_image = pygame.image.load("meteor.png").convert_alpha()
 
-# Font for score and game over
 default_font = pygame.font.Font(None, 36)
 game_over_font = pygame.font.Font(None, 72)
 
@@ -73,12 +70,11 @@ def game_over():
     screen.blit(restart_text, (150, 400))
     pygame.display.flip()
 
-# Agregar al principio del código
-game_active = False  # Inicia en el menú principal
-menu_active = True  # Variable para controlar el estado del menú
+game_active = False
+menu_active = True 
 
 def main_menu():
-    screen.fill((0, 0, 0))  # Limpiar la pantalla con color negro
+    screen.fill((0, 0, 0)) 
     title_text = game_over_font.render("SPACE GAME", True, (0, 0, 255))
     title_rect = title_text.get_rect(center=(screen.get_width() // 2, 200)) 
     instruction_text = default_font.render("Press ENTER to start", True, (255, 255, 255))
@@ -87,32 +83,31 @@ def main_menu():
     screen.blit(instruction_text, instruction_rect)
     pygame.display.flip()
 
-# Modificar el bucle principal
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        if menu_active:  # Lógica del menú principal
+        if menu_active: 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:  # Presionar ENTER para comenzar
+                if event.key == pygame.K_RETURN:  
                     menu_active = False
                     game_active = True
-        elif not game_active:  # Lógica de Game Over
+        elif not game_active: 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:  # Reiniciar juego
+                if event.key == pygame.K_RETURN:  
                     game_active = True
                     meteors = []
                     score = 0
                     difficulty = 0
                     player_position = [400, 500]
-                if event.key == pygame.K_ESCAPE:  # Salir del juego
+                if event.key == pygame.K_ESCAPE:  
                     running = False
 
     if menu_active:
         main_menu()
     elif game_active:
-        # Lógica del juego (sin cambios, ya estaba implementada)
+       
         ret, frame = cap.read()
         if not ret:
             break
@@ -120,7 +115,6 @@ while running:
         frame = cv2.flip(frame, 1)
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Procesar con MediaPipe Hands
         results = hands.process(rgb_frame)
 
         if results.multi_hand_landmarks:
@@ -129,10 +123,10 @@ while running:
                 index_finger = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
 
                 screen_w, screen_h = screen.get_size()
-                player_position[0] = int(wrist.x * screen_w - 30)  # Centrar la nave
+                player_position[0] = int(wrist.x * screen_w - 30)  
                 player_position[1] = int(wrist.y * screen_h - 30)
 
-                # Calcular el ángulo para la rotación
+                
                 dx = index_finger.x - wrist.x
                 dy = index_finger.y - wrist.y
                 player_angle = -math.degrees(math.atan2(dy, dx)) - 90
